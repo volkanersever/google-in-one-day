@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google in One Day — Crawler &amp; Search Engine</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🔍 Google in One Day</h1>
+    <p class="subtitle">Web Crawler &amp; Real-Time Search Engine</p>
+  </header>
+
+  <main>
+    <!-- System Status Panel -->
+    <section id="status-panel" class="panel">
+      <h2>System Status</h2>
+      <div class="status-grid" id="status-grid">
+        <div class="stat">
+          <span class="stat-label">Active Jobs</span>
+          <span class="stat-value" id="stat-active-jobs">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Queue Depth</span>
+          <span class="stat-value" id="stat-queue-depth">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Max Queue</span>
+          <span class="stat-value" id="stat-max-queue">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Active Workers</span>
+          <span class="stat-value" id="stat-active-workers">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Max Workers</span>
+          <span class="stat-value" id="stat-max-workers">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Processed</span>
+          <span class="stat-value" id="stat-processed">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Indexed</span>
+          <span class="stat-value" id="stat-indexed">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Errors</span>
+          <span class="stat-value" id="stat-errors">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Dropped (BP)</span>
+          <span class="stat-value" id="stat-dropped">0</span>
+        </div>
+      </div>
+      <div class="status-indicators">
+        <span class="indicator" id="ind-running">Running</span>
+        <span class="indicator" id="ind-saturated">Queue Saturated</span>
+        <span class="indicator" id="ind-throttled">Throttled</span>
+      </div>
+    </section>
+
+    <!-- Index Form -->
+    <section class="panel">
+      <h2>Start Crawl Job</h2>
+      <form id="index-form" class="form-row">
+        <input type="url" id="origin-url" placeholder="https://example.com" required>
+        <input type="number" id="crawl-depth" placeholder="Depth (k)" min="0" max="10" value="2" required>
+        <button type="submit">Start Indexing</button>
+      </form>
+      <div id="index-result" class="result-msg"></div>
+    </section>
+
+    <!-- Search Form -->
+    <section class="panel">
+      <h2>Search</h2>
+      <form id="search-form" class="form-row">
+        <input type="text" id="search-query" placeholder="Enter search query..." required>
+        <button type="submit">Search</button>
+      </form>
+      <div id="search-results">
+        <table id="results-table" class="hidden">
+          <thead>
+            <tr>
+              <th>Score</th>
+              <th>Relevant URL</th>
+              <th>Title</th>
+              <th>Origin URL</th>
+              <th>Depth</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+        <p id="no-results" class="hidden">No results found.</p>
+      </div>
+    </section>
+
+    <!-- Jobs List -->
+    <section class="panel">
+      <h2>Crawl Jobs</h2>
+      <table id="jobs-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Origin</th>
+            <th>Depth</th>
+            <th>Status</th>
+            <th>Discovered</th>
+            <th>Processed</th>
+            <th>Indexed</th>
+            <th>Errors</th>
+            <th>Queued</th>
+          </tr>
+        </thead>
+        <tbody id="jobs-body"></tbody>
+      </table>
+    </section>
+
+    <!-- Recent Errors -->
+    <section class="panel">
+      <h2>Recent Errors</h2>
+      <div id="recent-errors">
+        <p class="muted">No recent errors.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Auto-refreshes every 2 seconds</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

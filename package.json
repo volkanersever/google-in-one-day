@@ -1,0 +1,25 @@
+{
+  "name": "google-in-one-day",
+  "version": "1.0.0",
+  "description": "A functional web crawler and real-time search engine built from scratch",
+  "type": "module",
+  "main": "src/server/app.js",
+  "scripts": {
+    "init-db": "node scripts/initDb.js",
+    "dev": "node scripts/dev.js",
+    "start": "node src/server/app.js",
+    "index": "node scripts/cli.js index",
+    "search": "node scripts/cli.js search",
+    "status": "node scripts/cli.js status",
+    "test": "node --test 'test/*.test.js'"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0"
+  },
+  "devDependencies": {},
+  "keywords": ["crawler", "search-engine", "indexer"],
+  "license": "MIT"
+}
