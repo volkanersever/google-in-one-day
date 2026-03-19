@@ -10,6 +10,7 @@ import { CrawlRepository } from '../src/storage/crawlRepository.js';
 import { IndexService } from '../src/indexer/indexService.js';
 import { StateRepository } from '../src/storage/stateRepository.js';
 import { PageRepository } from '../src/storage/pageRepository.js';
+import { getCrawlerService } from '../src/crawler/crawlerService.js';
 
 initializeSchema();
 
@@ -25,10 +26,50 @@ try {
         console.error('Usage: npm run index -- <url> <depth>');
         process.exit(1);
       }
-      console.log(`To start indexing, use the web UI or API:`);
-      console.log(`  curl -X POST http://localhost:3000/api/index \\`);
-      console.log(`    -H "Content-Type: application/json" \\`);
-      console.log(`    -d '{"origin": "${origin}", "k": ${depth}}'`);
+
+      console.log(`Starting crawl: ${origin} (depth: ${depth})`);
+      const crawler = getCrawlerService();
+      await crawler.resume();
+      const job = await crawler.startJob(origin, depth);
+      console.log(`Job #${job.id} started — status: ${job.status}`);
+      console.log(`Crawling in progress. Use 'npm run status' to monitor.`);
+      console.log(`Press Ctrl+C to stop (progress is saved and resumable).\n`);
+
+      // Keep process alive while crawling, with periodic status updates
+      const statusInterval = setInterval(() => {
+        const s = crawler.getStatus();
+        process.stdout.write(
+          `\r  Workers: ${s.activeWorkers}/${s.maxWorkers} | Queue: ${s.queueDepth} | ` +
+          `Jobs: ${s.activeJobs} | Saturated: ${s.queueSaturated}  `
+        );
+      }, 1000);
+
+      // Graceful shutdown on Ctrl+C
+      process.on('SIGINT', () => {
+        clearInterval(statusInterval);
+        console.log('\n\nStopping crawler (progress saved)...');
+        crawler.stop();
+        closeDb();
+        process.exit(0);
+      });
+
+      // Wait for crawler to finish
+      await new Promise((resolve) => {
+        const check = setInterval(() => {
+          if (!crawler.running) {
+            clearInterval(check);
+            clearInterval(statusInterval);
+            resolve();
+          }
+        }, 500);
+      });
+
+      console.log('\n\nCrawl completed.');
+      const finalJob = new CrawlRepository().getJob(job.id);
+      console.log(`  Discovered: ${finalJob.discovered_count}`);
+      console.log(`  Processed:  ${finalJob.processed_count}`);
+      console.log(`  Indexed:    ${finalJob.indexed_count}`);
+      console.log(`  Errors:     ${finalJob.error_count}`);
       break;
     }
 

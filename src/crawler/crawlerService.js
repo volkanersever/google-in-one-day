@@ -331,6 +331,84 @@ export class CrawlerService {
   }
 
   /**
+   * Pause a specific job: stops processing its queue items but keeps the crawler running.
+   */
+  pauseJob(jobId) {
+    const job = this.crawlRepo.getJob(jobId);
+    if (!job) throw new Error(`Job ${jobId} not found`);
+    if (job.status !== JOB_STATUS.RUNNING) {
+      throw new Error(`Job ${jobId} is not running (status: ${job.status})`);
+    }
+
+    this.crawlRepo.updateJobStatus(jobId, JOB_STATUS.PAUSED);
+    this.activeJobs.delete(jobId);
+    this.frontier.clearJob(jobId);
+    log.info(`Job ${jobId} paused`);
+    return this.crawlRepo.getJob(jobId);
+  }
+
+  /**
+   * Resume a paused job: re-enqueues pending URLs from discovered_urls.
+   */
+  async resumeJob(jobId) {
+    const job = this.crawlRepo.getJob(jobId);
+    if (!job) throw new Error(`Job ${jobId} not found`);
+    if (job.status !== JOB_STATUS.PAUSED) {
+      throw new Error(`Job ${jobId} is not paused (status: ${job.status})`);
+    }
+
+    this.crawlRepo.updateJobStatus(jobId, JOB_STATUS.RUNNING);
+    this.activeJobs.set(jobId, {
+      originUrl: job.origin_url,
+      maxDepth: job.max_depth,
+      startedAt: Date.now(),
+    });
+
+    // Re-enqueue any URLs that were queued but not yet processed for this job
+    const db = (await import('../storage/db.js')).getDb();
+    const pending = db.prepare(
+      `SELECT normalized_url, url, job_id, depth, discovered_from_url
+       FROM discovered_urls WHERE job_id = ? AND state = ?`
+    ).all(jobId, 'queued');
+
+    for (const row of pending) {
+      this.frontier.enqueue({
+        normalizedUrl: row.normalized_url,
+        url: row.url,
+        jobId: row.job_id,
+        originUrl: job.origin_url,
+        depth: row.depth,
+        discoveredFromUrl: row.discovered_from_url,
+      });
+    }
+
+    if (!this.running) {
+      this.running = true;
+      this.runWorkerLoop();
+    }
+
+    log.info(`Job ${jobId} resumed with ${pending.length} re-enqueued URLs`);
+    return this.crawlRepo.getJob(jobId);
+  }
+
+  /**
+   * Cancel a job: stops it permanently and cleans up frontier.
+   */
+  cancelJob(jobId) {
+    const job = this.crawlRepo.getJob(jobId);
+    if (!job) throw new Error(`Job ${jobId} not found`);
+    if (job.status === JOB_STATUS.COMPLETED || job.status === JOB_STATUS.FAILED) {
+      throw new Error(`Job ${jobId} is already ${job.status}`);
+    }
+
+    this.crawlRepo.updateJobStatus(jobId, JOB_STATUS.FAILED);
+    this.activeJobs.delete(jobId);
+    this.frontier.clearJob(jobId);
+    log.info(`Job ${jobId} cancelled`);
+    return this.crawlRepo.getJob(jobId);
+  }
+
+  /**
    * Stop the crawler gracefully.
    */
   stop() {

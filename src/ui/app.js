@@ -62,11 +62,21 @@ async function fetchJobs() {
 function updateJobs(jobs) {
   const tbody = $('jobs-body');
   if (!jobs || jobs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="muted">No jobs yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="muted">No jobs yet.</td></tr>';
     return;
   }
-  tbody.innerHTML = jobs.map(j =>
-    `<tr>
+  tbody.innerHTML = jobs.map(j => {
+    let actions = '';
+    if (j.status === 'running') {
+      actions = `<button class="btn-sm btn-warn" onclick="jobAction(${j.id},'pause')">Pause</button>
+                 <button class="btn-sm btn-danger" onclick="jobAction(${j.id},'cancel')">Cancel</button>`;
+    } else if (j.status === 'paused') {
+      actions = `<button class="btn-sm btn-ok" onclick="jobAction(${j.id},'resume')">Resume</button>
+                 <button class="btn-sm btn-danger" onclick="jobAction(${j.id},'cancel')">Cancel</button>`;
+    } else {
+      actions = `<span class="muted">—</span>`;
+    }
+    return `<tr>
       <td>${j.id}</td>
       <td class="url-cell"><a href="${escAttr(j.origin_url)}" target="_blank">${escHtml(j.origin_url)}</a></td>
       <td>${j.max_depth}</td>
@@ -76,8 +86,24 @@ function updateJobs(jobs) {
       <td>${j.indexed_count}</td>
       <td>${j.error_count}</td>
       <td>${j.queued_count}</td>
-    </tr>`
-  ).join('');
+      <td>${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Job actions: pause, resume, cancel
+async function jobAction(jobId, action) {
+  try {
+    const res = await fetch(`${API}/api/jobs/${jobId}/${action}`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || `Failed to ${action} job`);
+    }
+    fetchJobs();
+    fetchStatus();
+  } catch (err) {
+    alert('Network error: ' + err.message);
+  }
 }
 
 // Index form

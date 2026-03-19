@@ -1,4 +1,4 @@
-import { startIndex, search, getStatus, getJobs, getJob } from '../api/controllers.js';
+import { startIndex, search, getStatus, getJobs, getJob, pauseJob, resumeJob, cancelJob } from '../api/controllers.js';
 
 /**
  * Simple router for the HTTP server.
@@ -44,6 +44,18 @@ export async function handleRequest(req, res) {
 
     if (path === '/api/jobs' && method === 'GET') {
       const result = getJobs();
+      sendJson(res, result.status, result.body);
+      return;
+    }
+
+    // Job action routes: /api/jobs/:id/pause, /api/jobs/:id/resume, /api/jobs/:id/cancel
+    const jobActionMatch = path.match(/^\/api\/jobs\/(\d+)\/(pause|resume|cancel)$/);
+    if (jobActionMatch && method === 'POST') {
+      const [, id, action] = jobActionMatch;
+      let result;
+      if (action === 'pause') result = pauseJob(id);
+      else if (action === 'resume') result = await resumeJob(id);
+      else if (action === 'cancel') result = cancelJob(id);
       sendJson(res, result.status, result.body);
       return;
     }

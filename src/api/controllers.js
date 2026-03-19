@@ -119,3 +119,48 @@ export function getJob(id) {
     return { status: 500, body: { error: err.message } };
   }
 }
+
+/**
+ * POST /api/jobs/:id/pause
+ */
+export function pauseJob(id) {
+  try {
+    const crawler = getCrawlerService();
+    const job = crawler.pauseJob(parseInt(id, 10));
+    return { status: 200, body: job };
+  } catch (err) {
+    log.error('Pause job failed', err.message);
+    const status = err.message.includes('not found') ? 404 : 400;
+    return { status, body: { error: err.message } };
+  }
+}
+
+/**
+ * POST /api/jobs/:id/resume
+ */
+export async function resumeJob(id) {
+  try {
+    const crawler = getCrawlerService();
+    const job = await crawler.resumeJob(parseInt(id, 10));
+    return { status: 200, body: job };
+  } catch (err) {
+    log.error('Resume job failed', err.message);
+    const status = err.message.includes('not found') ? 404 : 400;
+    return { status, body: { error: err.message } };
+  }
+}
+
+/**
+ * POST /api/jobs/:id/cancel
+ */
+export function cancelJob(id) {
+  try {
+    const crawler = getCrawlerService();
+    const job = crawler.cancelJob(parseInt(id, 10));
+    return { status: 200, body: job };
+  } catch (err) {
+    log.error('Cancel job failed', err.message);
+    const status = err.message.includes('not found') ? 404 : 400;
+    return { status, body: { error: err.message } };
+  }
+}
