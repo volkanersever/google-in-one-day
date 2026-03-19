@@ -191,7 +191,7 @@ The system supports lightweight resume:
 - **No distributed crawling** — designed for single-machine use
 - **Search relevance** is basic TF-based scoring, not PageRank or BM25
 - **No authentication handling** — only public pages are crawlable
-- **Content extraction** truncates at 100KB per page
+- **Content extraction** truncates at 100KB per page.
 
 ## Future Improvements
 
