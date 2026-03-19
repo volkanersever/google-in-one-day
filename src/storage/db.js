@@ -21,7 +21,11 @@ export function getDb() {
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
-  db.pragma('busy_timeout = 5000');
+  db.pragma('busy_timeout = 10000');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('wal_autocheckpoint = 1000');
+  db.pragma('cache_size = -64000');  // 64MB cache
+  db.pragma('mmap_size = 268435456'); // 256MB mmap for faster reads
 
   log.info(`Database opened at ${dbPath}`);
   return db;
@@ -40,8 +44,14 @@ export function initializeSchema() {
 
 export function closeDb() {
   if (db) {
+    try {
+      // Checkpoint WAL to main DB file before closing — prevents corruption
+      db.pragma('wal_checkpoint(TRUNCATE)');
+    } catch (err) {
+      log.warn(`WAL checkpoint failed: ${err.message}`);
+    }
     db.close();
     db = null;
-    log.info('Database closed');
+    log.info('Database closed cleanly');
   }
 }
