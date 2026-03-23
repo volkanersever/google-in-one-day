@@ -74,8 +74,10 @@ function updateJobs(jobs) {
       actions = `<button class="btn-sm btn-ok" onclick="jobAction(${j.id},'resume')">Resume</button>
                  <button class="btn-sm btn-danger" onclick="jobAction(${j.id},'cancel')">Cancel</button>`;
     } else {
-      actions = `<span class="muted">—</span>`;
+      actions = '';
     }
+    // Always show delete button for any job
+    actions += ` <button class="btn-sm btn-delete" onclick="deleteJobAction(${j.id})" title="Delete job and all data">🗑</button>`;
     return `<tr>
       <td>${j.id}</td>
       <td class="url-cell"><a href="${escAttr(j.origin_url)}" target="_blank">${escHtml(j.origin_url)}</a></td>
@@ -89,6 +91,22 @@ function updateJobs(jobs) {
       <td>${actions}</td>
     </tr>`;
   }).join('');
+}
+
+// Delete a job and all its associated data
+async function deleteJobAction(jobId) {
+  if (!confirm(`Delete job #${jobId} and all its crawled data? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(`${API}/api/jobs/${jobId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || 'Failed to delete job');
+    }
+    fetchJobs();
+    fetchStatus();
+  } catch (err) {
+    alert('Network error: ' + err.message);
+  }
 }
 
 // Job actions: pause, resume, cancel

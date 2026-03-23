@@ -59,4 +59,49 @@ export class CrawlRepository {
       'SELECT * FROM crawl_jobs WHERE status IN (?, ?)'
     ).all(JOB_STATUS.QUEUED, JOB_STATUS.RUNNING);
   }
+
+  /**
+   * Delete a job and all its associated data (discovered URLs, frontier items,
+   * page discoveries, page terms, and orphaned pages).
+   */
+  deleteJob(id) {
+    const db = getDb();
+    const job = this.getJob(id);
+    if (!job) return null;
+
+    const deleteAll = db.transaction(() => {
+      // 1. Delete frontier queue items for this job
+      db.prepare('DELETE FROM frontier_queue WHERE job_id = ?').run(id);
+
+      // 2. Find page_ids discovered only by this job (orphaned after deletion)
+      const exclusivePages = db.prepare(`
+        SELECT pd.page_id FROM page_discoveries pd
+        WHERE pd.job_id = ?
+        AND pd.page_id NOT IN (
+          SELECT page_id FROM page_discoveries WHERE job_id != ?
+        )
+      `).all(id, id);
+
+      const exclusivePageIds = exclusivePages.map(r => r.page_id);
+
+      // 3. Delete page discoveries for this job
+      db.prepare('DELETE FROM page_discoveries WHERE job_id = ?').run(id);
+
+      // 4. Delete orphaned page terms and pages
+      if (exclusivePageIds.length > 0) {
+        const placeholders = exclusivePageIds.map(() => '?').join(',');
+        db.prepare(`DELETE FROM page_terms WHERE page_id IN (${placeholders})`).run(...exclusivePageIds);
+        db.prepare(`DELETE FROM pages WHERE id IN (${placeholders})`).run(...exclusivePageIds);
+      }
+
+      // 5. Delete discovered URLs for this job
+      db.prepare('DELETE FROM discovered_urls WHERE job_id = ?').run(id);
+
+      // 6. Delete the job itself
+      db.prepare('DELETE FROM crawl_jobs WHERE id = ?').run(id);
+    });
+
+    deleteAll();
+    return job;
+  }
 }

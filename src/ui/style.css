@@ -178,6 +178,8 @@ td a:hover { text-decoration: underline; }
 .btn-warn:hover { background: #d35400; }
 .btn-danger { background: #e74c3c; color: #fff; }
 .btn-danger:hover { background: #c0392b; }
+.btn-delete { background: #95a5a6; color: #fff; font-size: 0.85rem; min-width: 28px; padding: 2px 6px; }
+.btn-delete:hover { background: #e74c3c; }
 .btn-ok { background: #27ae60; color: #fff; }
 .btn-ok:hover { background: #219a52; }
 

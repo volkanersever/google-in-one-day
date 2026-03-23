@@ -1,4 +1,4 @@
-import { startIndex, search, getStatus, getJobs, getJob, pauseJob, resumeJob, cancelJob } from '../api/controllers.js';
+import { startIndex, search, getStatus, getJobs, getJob, pauseJob, resumeJob, cancelJob, deleteJob } from '../api/controllers.js';
 
 /**
  * Simple router for the HTTP server.
@@ -11,7 +11,7 @@ export async function handleRequest(req, res) {
 
   // CORS headers for local development
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (method === 'OPTIONS') {
@@ -56,6 +56,15 @@ export async function handleRequest(req, res) {
       if (action === 'pause') result = pauseJob(id);
       else if (action === 'resume') result = await resumeJob(id);
       else if (action === 'cancel') result = cancelJob(id);
+      sendJson(res, result.status, result.body);
+      return;
+    }
+
+    // DELETE /api/jobs/:id
+    const jobDeleteMatch = path.match(/^\/api\/jobs\/(\d+)$/);
+    if (jobDeleteMatch && method === 'DELETE') {
+      const [, id] = jobDeleteMatch;
+      const result = deleteJob(id);
       sendJson(res, result.status, result.body);
       return;
     }

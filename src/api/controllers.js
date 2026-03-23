@@ -164,3 +164,31 @@ export function cancelJob(id) {
     return { status, body: { error: err.message } };
   }
 }
+
+/**
+ * DELETE /api/jobs/:id
+ * Deletes a job and all associated data (discovered URLs, pages, index terms).
+ * Running jobs are cancelled first.
+ */
+export function deleteJob(id) {
+  try {
+    const jobId = parseInt(id, 10);
+    const job = crawlRepo.getJob(jobId);
+    if (!job) {
+      return { status: 404, body: { error: 'Job not found' } };
+    }
+
+    // If job is still running or paused, cancel it first
+    if (job.status === 'running' || job.status === 'paused') {
+      const crawler = getCrawlerService();
+      try { crawler.cancelJob(jobId); } catch { /* already stopped */ }
+    }
+
+    const deleted = crawlRepo.deleteJob(jobId);
+    log.info(`Job ${jobId} deleted`);
+    return { status: 200, body: { deleted: true, jobId, origin: deleted.origin_url } };
+  } catch (err) {
+    log.error('Delete job failed', err.message);
+    return { status: 500, body: { error: err.message } };
+  }
+}
