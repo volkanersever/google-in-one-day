@@ -11,6 +11,7 @@
     "index": "node scripts/cli.js index",
     "search": "node scripts/cli.js search",
     "status": "node scripts/cli.js status",
+    "export-storage": "node scripts/exportStorage.js",
     "test": "node --test 'test/*.test.js'"
   },
   "engines": {

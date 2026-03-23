@@ -31,7 +31,7 @@ function envInt(key, fallback) {
 }
 
 export const config = {
-  port: envInt('PORT', 3000),
+  port: envInt('PORT', 3600),
   dbPath: env('DB_PATH', './data/crawler.db'),
   maxWorkers: envInt('MAX_WORKERS', 8),
   maxQueueDepth: envInt('MAX_QUEUE_DEPTH', 10000),

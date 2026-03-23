@@ -3,6 +3,8 @@ import { IndexService } from '../indexer/indexService.js';
 import { CrawlRepository } from '../storage/crawlRepository.js';
 import { StateRepository } from '../storage/stateRepository.js';
 import { PageRepository } from '../storage/pageRepository.js';
+import { IndexRepository } from '../storage/indexRepository.js';
+import { tokenize } from '../indexer/tokenizer.js';
 import { createLogger } from '../shared/logger.js';
 
 const log = createLogger('api');
@@ -10,6 +12,7 @@ const indexService = new IndexService();
 const crawlRepo = new CrawlRepository();
 const stateRepo = new StateRepository();
 const pageRepo = new PageRepository();
+const indexRepo = new IndexRepository();
 
 /**
  * POST /api/index
@@ -162,6 +165,124 @@ export function cancelJob(id) {
     log.error('Cancel job failed', err.message);
     const status = err.message.includes('not found') ? 404 : 400;
     return { status, body: { error: err.message } };
+  }
+}
+
+/**
+ * GET /search?query=<word>&sortBy=relevance
+ * Legacy/compatible search endpoint matching reference project format.
+ *
+ * Scoring formula: score = (frequency x 10) + 1000 (exact match bonus) - (depth x 5)
+ * Returns results sorted by relevance_score descending with pagination.
+ */
+export async function searchLegacy(query, sortBy, page = 1, limit = 20) {
+  if (!query || typeof query !== 'string' || query.trim().length === 0) {
+    return { status: 400, body: { error: 'Missing or empty "query" parameter' } };
+  }
+
+  try {
+    const queryStr = query.trim().toLowerCase();
+    const queryTokens = tokenize(queryStr);
+    if (queryTokens.length === 0) {
+      return { status: 200, body: { query, results: [], total: 0, page, limit } };
+    }
+
+    const { getDb } = await import('../storage/db.js');
+    const db = getDb();
+
+    // Find all matching terms with their page data and discovery info
+    const placeholders = queryTokens.map(() => '?').join(',');
+    const rows = db.prepare(`
+      SELECT
+        pt.term,
+        pt.frequency,
+        pt.field,
+        p.url,
+        p.title,
+        pd.origin_url,
+        pd.depth
+      FROM page_terms pt
+      JOIN pages p ON p.id = pt.page_id
+      JOIN page_discoveries pd ON pd.page_id = p.id
+      WHERE pt.term IN (${placeholders})
+      ORDER BY pt.frequency DESC
+    `).all(...queryTokens);
+
+    if (rows.length === 0) {
+      return { status: 200, body: { query, results: [], total: 0, page, limit } };
+    }
+
+    // Group by (url, origin_url, depth) and aggregate scores
+    const resultMap = new Map();
+    for (const row of rows) {
+      const key = `${row.url}|${row.origin_url}|${row.depth}`;
+      if (!resultMap.has(key)) {
+        resultMap.set(key, {
+          url: row.url,
+          title: row.title,
+          origin_url: row.origin_url,
+          depth: row.depth,
+          totalFrequency: 0,
+          exactMatch: false,
+          terms: [],
+        });
+      }
+      const entry = resultMap.get(key);
+      entry.totalFrequency += row.frequency;
+      entry.terms.push({ term: row.term, field: row.field, frequency: row.frequency });
+
+      // Check if any query token is an exact match
+      if (queryTokens.includes(row.term)) {
+        entry.exactMatch = true;
+      }
+    }
+
+    // Calculate scores using the reference formula:
+    // score = (frequency x 10) + 1000 (exact match bonus) - (depth x 5)
+    const results = [];
+    for (const entry of resultMap.values()) {
+      const frequencyScore = entry.totalFrequency * 10;
+      const exactMatchBonus = entry.exactMatch ? 1000 : 0;
+      const depthPenalty = entry.depth * 5;
+      const relevance_score = frequencyScore + exactMatchBonus - depthPenalty;
+
+      results.push({
+        url: entry.url,
+        title: entry.title,
+        origin_url: entry.origin_url,
+        depth: entry.depth,
+        frequency: entry.totalFrequency,
+        relevance_score,
+        terms: entry.terms,
+      });
+    }
+
+    // Sort by relevance_score descending
+    if (sortBy === 'relevance') {
+      results.sort((a, b) => b.relevance_score - a.relevance_score);
+    } else {
+      results.sort((a, b) => b.frequency - a.frequency);
+    }
+
+    // Pagination
+    const total = results.length;
+    const offset = (page - 1) * limit;
+    const paginatedResults = results.slice(offset, offset + limit);
+
+    return {
+      status: 200,
+      body: {
+        query,
+        results: paginatedResults,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  } catch (err) {
+    log.error('Legacy search failed', err.message);
+    return { status: 500, body: { error: err.message } };
   }
 }
 

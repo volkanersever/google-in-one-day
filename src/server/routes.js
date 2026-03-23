@@ -1,4 +1,4 @@
-import { startIndex, search, getStatus, getJobs, getJob, pauseJob, resumeJob, cancelJob, deleteJob } from '../api/controllers.js';
+import { startIndex, search, searchLegacy, getStatus, getJobs, getJob, pauseJob, resumeJob, cancelJob, deleteJob } from '../api/controllers.js';
 
 /**
  * Simple router for the HTTP server.
@@ -32,6 +32,17 @@ export async function handleRequest(req, res) {
     if (path === '/api/search' && method === 'GET') {
       const query = url.searchParams.get('q');
       const result = search(query);
+      sendJson(res, result.status, result.body);
+      return;
+    }
+
+    // Legacy search endpoint: GET /search?query=<word>&sortBy=relevance&page=1&limit=20
+    if (path === '/search' && method === 'GET') {
+      const query = url.searchParams.get('query');
+      const sortBy = url.searchParams.get('sortBy') || 'relevance';
+      const page = parseInt(url.searchParams.get('page') || '1', 10);
+      const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+      const result = await searchLegacy(query, sortBy, page, limit);
       sendJson(res, result.status, result.body);
       return;
     }

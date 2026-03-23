@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { config } from '../shared/config.js';
 import { createLogger } from '../shared/logger.js';
 import { JOB_STATUS, HTML_CONTENT_TYPES } from '../shared/constants.js';
@@ -127,6 +129,8 @@ export class CrawlerService {
         if (allDone && this.frontier.size() === 0) {
           this.running = false;
           log.info('All jobs completed, worker loop stopped');
+          // Auto-export storage files for file-based access
+          exportStorageFiles();
         }
       }
     }
@@ -414,6 +418,45 @@ export class CrawlerService {
   stop() {
     this.running = false;
     log.info('Crawler stopped');
+  }
+}
+
+/**
+ * Export indexed data to data/storage/[letter].data files.
+ * Called automatically when all jobs finish.
+ */
+async function exportStorageFiles() {
+  try {
+    const { getDb } = await import('../storage/db.js');
+    const db = getDb();
+    const storageDir = resolve(process.cwd(), 'data', 'storage');
+    mkdirSync(storageDir, { recursive: true });
+
+    const rows = db.prepare(`
+      SELECT pt.term, pt.frequency, p.url, pd.origin_url, pd.depth
+      FROM page_terms pt
+      JOIN pages p ON pt.page_id = p.id
+      JOIN page_discoveries pd ON pd.page_id = p.id
+      ORDER BY pt.term, pt.frequency DESC
+    `).all();
+
+    const letterGroups = new Map();
+    for (const row of rows) {
+      const term = row.term.toLowerCase();
+      if (!term) continue;
+      const firstChar = term[0];
+      const key = /[a-z]/.test(firstChar) ? firstChar : /[0-9]/.test(firstChar) ? firstChar : '_';
+      if (!letterGroups.has(key)) letterGroups.set(key, []);
+      letterGroups.get(key).push(`${term}\t${row.url}\t${row.origin_url}\t${row.depth}\t${row.frequency}`);
+    }
+
+    for (const [letter, lines] of letterGroups) {
+      writeFileSync(resolve(storageDir, `${letter}.data`), lines.join('\n') + '\n', 'utf-8');
+    }
+
+    log.info(`Storage files exported: ${letterGroups.size} files, ${rows.length} entries`);
+  } catch (err) {
+    log.error(`Storage export failed: ${err.message}`);
   }
 }
 
